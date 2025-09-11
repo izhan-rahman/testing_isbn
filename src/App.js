@@ -1,24 +1,16 @@
-import { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import BarcodeScanner from "./components/BarcodeScanner";
-// ✅ Import your GIF (adjust the path based on where you saved it)
-import loadingGif from "./assets/loading.gif";   //  <-- exact spelling & case
 
-// Updated Loading Animation Component with your GIF
+// This is a self-contained CSS loading animation, so no external GIF is needed.
 function RunningCharacterLoader() {
   return (
     <div style={loadingStyles.container}>
-      <div style={loadingStyles.gifContainer}>
-        <img 
-          src={loadingGif} 
-          alt="Loading..." 
-          style={loadingStyles.gifImage}
-        />
-      </div>
+      <div style={loadingStyles.spinner}></div>
       <p style={loadingStyles.text}>📖 Searching for book...</p>
       <div style={loadingStyles.dots}>
-        <span style={{...loadingStyles.dot, animationDelay: "0s"}}></span>
-        <span style={{...loadingStyles.dot, animationDelay: "0.2s"}}></span>  
-        <span style={{...loadingStyles.dot, animationDelay: "0.4s"}}></span>
+        <span style={{ ...loadingStyles.dot, animationDelay: "0s" }}></span>
+        <span style={{ ...loadingStyles.dot, animationDelay: "0.2s" }}></span>
+        <span style={{ ...loadingStyles.dot, animationDelay: "0.4s" }}></span>
       </div>
     </div>
   );
@@ -37,20 +29,32 @@ export default function App() {
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [location, setLocation] = useState("");
+  
+  // ✅ FEATURE: Default location state is set to "GRANDMALL"
+  const [location, setLocation] = useState("GRANDMALL");
+
+  // ✅ FEATURE: Create a ref for the manual input field
+  const manualInputRef = useRef(null);
+
+  // ✅ FEATURE: Add a useEffect to focus the input when the view changes
+  useEffect(() => {
+    if (view === "manualIsbn" && manualInputRef.current) {
+      manualInputRef.current.focus();
+    }
+  }, [view]);
 
   const fetchTitle = async (isbnToUse) => {
-    if (!isbnToUse.trim()) {
-      alert("Please enter a valid ISBN");
+    if (!isbnToUse || !isbnToUse.trim()) {
+      console.warn("Please enter a valid ISBN");
       return;
     }
 
-    setView("priceEntry");  // ✅ CHANGED: Move this BEFORE setIsLoading
+    setView("priceEntry");
     setIsLoading(true);
-    
-    const startTime = Date.now(); // ✅ ADDED: Track timing
+
+    const startTime = Date.now();
     try {
-      const response = await fetch("https://testocrtest.pythonanywhere.com/receive_isbn", {
+      const response = await fetch("https://testocr.pythonanywhere.com/receive_isbn", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isbn: isbnToUse.trim() }),
@@ -76,7 +80,6 @@ export default function App() {
       setTitleFromBackend("");
       setShowManualTitle(true);
     } finally {
-      // ✅ ADDED: Ensure loader shows minimum 300ms
       const elapsed = Date.now() - startTime;
       const delay = Math.max(0, 300 - elapsed);
       setTimeout(() => setIsLoading(false), delay);
@@ -86,7 +89,7 @@ export default function App() {
   const sendToBackend = async () => {
     const title = titleFromBackend || manualTitle;
     if (!isbn || !title || !price || !quantity || !location) {
-      alert("Please fill in all fields including location.");
+      console.warn("Please fill in all fields including location.");
       return;
     }
 
@@ -94,15 +97,15 @@ export default function App() {
     setSaveMessage("");
 
     try {
-      const response = await fetch("https://testocrtest.pythonanywhere.com/save_title", {
+      const response = await fetch("https://testocr.pythonanywhere.com/save_title", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          isbn, 
-          b_title: title, 
-          price: parseFloat(price), 
-          quantity: parseInt(quantity), 
-          location 
+        body: JSON.stringify({
+          isbn,
+          b_title: title,
+          price: parseFloat(price),
+          quantity: parseInt(quantity),
+          location
         }),
       });
 
@@ -113,11 +116,11 @@ export default function App() {
       await response.json();
       setIsSaved(true);
       setSaveMessage("✅ Saved successfully");
-      
+
       setTimeout(() => {
         setSaveMessage("");
       }, 3000);
-      
+
     } catch (error) {
       console.error("Error saving data:", error);
       setSaveMessage("❌ Error while saving");
@@ -134,7 +137,7 @@ export default function App() {
     setManualTitle("");
     setPrice("");
     setQuantity("1");
-    setLocation("");
+    setLocation("GRANDMALL"); // Reset location back to default
     setShowManualTitle(false);
     setIsSaved(false);
     setSaveMessage("");
@@ -179,6 +182,7 @@ export default function App() {
           <>
             <h3 style={styles.subHeader}>Manual ISBN Entry</h3>
             <input
+              ref={manualInputRef}
               value={manualIsbn}
               onChange={(e) => setManualIsbn(e.target.value)}
               onKeyPress={(e) => handleKeyPress(e, () => fetchTitle(manualIsbn.trim()))}
@@ -318,7 +322,6 @@ export default function App() {
   );
 }
 
-// ✅ Updated Loading Animation Styles for your GIF
 const loadingStyles = {
   container: {
     display: "flex",
@@ -328,19 +331,14 @@ const loadingStyles = {
     padding: "40px 20px",
     textAlign: "center",
   },
-  gifContainer: {
-    marginBottom: 20,
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  gifImage: {
-    width: "120px",  // Adjust size as needed
-    height: "120px", // Adjust size as needed
-    borderRadius: "50%", // Makes it circular (optional)
-    objectFit: "cover", // Ensures proper scaling
-    boxShadow: "0 4px 15px rgba(0,0,0,0.1)", // Nice shadow
-    display: "block", // ✅ ADDED: Ensure proper display
+  spinner: {
+    width: "60px",
+    height: "60px",
+    border: "5px solid #f3f3f3",
+    borderTop: "5px solid #007bff",
+    borderRadius: "50%",
+    animation: "spin 1s linear infinite",
+    marginBottom: "20px",
   },
   text: {
     fontSize: 18,
@@ -364,7 +362,6 @@ const loadingStyles = {
   },
 };
 
-// ✅ Your existing styles (unchanged as requested)
 const styles = {
   container: {
     minHeight: "100vh",
@@ -537,4 +534,3 @@ const styles = {
     fontSize: "15px",
   },
 };
-
