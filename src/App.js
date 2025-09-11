@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 
-// The BarcodeScanner component is included directly in this file to avoid import errors.
-// It accesses the Html5Qqrcode library from the window object.
+// The BarcodeScanner component is included directly in this file.
+// It accesses the Html5Qrcode library from the global window object.
 function BarcodeScanner({ onDetected }) {
   const scannerRef = useRef(null);
   const isScanning = useRef(false);
@@ -9,20 +9,20 @@ function BarcodeScanner({ onDetected }) {
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    // Access the Html5Qrcode library from the global window object.
+    // Check if the html5-qrcode script has loaded and added Html5Qrcode to the window.
     if (!window.Html5Qrcode) {
-        console.error("Html5Qrcode library is not loaded.");
-        setErrorMessage("Scanner library failed to load.");
-        setLoading(false);
-        return;
+      console.error("Html5Qrcode library is not loaded.");
+      setErrorMessage("Scanner library failed to load. Please refresh.");
+      setLoading(false);
+      return;
     }
 
     const readerElement = document.getElementById("reader");
     if (!readerElement) {
-        console.error("The element with id 'reader' was not found.");
-        setLoading(false);
-        setErrorMessage("Scanner container not found.");
-        return;
+      console.error("The element with id 'reader' was not found.");
+      setLoading(false);
+      setErrorMessage("Scanner container not found.");
+      return;
     }
 
     let isMounted = true;
@@ -48,13 +48,11 @@ function BarcodeScanner({ onDetected }) {
               if ((isbn.length === 10 || isbn.length === 13) && (isbn.startsWith("978") || isbn.startsWith("979"))) {
                 if (isScanning.current) {
                   isScanning.current = false;
-                  scanner.stop().then(() => {
-                    onDetected(isbn);
-                  });
+                  scanner.stop().then(() => onDetected(isbn));
                 }
               }
             },
-            (err) => { /* Ignore scan errors */ }
+            (err) => { /* Ignore scan errors silently */ }
           )
           .then(() => {
             if (isMounted) {
@@ -99,7 +97,7 @@ function BarcodeScanner({ onDetected }) {
 }
 
 
-// This is a self-contained CSS loading animation.
+// A self-contained CSS loading animation component.
 function RunningCharacterLoader() {
   return (
     <div style={loadingStyles.container}>
@@ -131,27 +129,23 @@ export default function App() {
   const [location, setLocation] = useState("GRANDMALL");
   const manualInputRef = useRef(null);
 
-  // Focus the input when switching to the manual view.
   useEffect(() => {
     if (view === "manualIsbn" && manualInputRef.current) {
       manualInputRef.current.focus();
     }
   }, [view]);
 
-  // Automatically returns to the manual scanner view after a successful save.
   useEffect(() => {
     if (isSaved) {
       const timer = setTimeout(() => {
         resetForNextScan();
-      }, 1500); // Waits 1.5 seconds to show the success message
+      }, 1500); // Waits 1.5 seconds to show success message
       return () => clearTimeout(timer);
     }
   }, [isSaved]);
 
   const fetchTitle = async (isbnToUse) => {
-    if (!isbnToUse || isbnToUse.trim().length !== 13) {
-      return; // Only fetch if the ISBN is exactly 13 characters
-    }
+    if (!isbnToUse || isbnToUse.trim().length !== 13) return;
 
     setView("priceEntry");
     setIsLoading(true);
@@ -185,10 +179,8 @@ export default function App() {
 
   const sendToBackend = async () => {
     const title = titleFromBackend || manualTitle;
-    if (!isbn || !title || !price || !quantity || !location) {
-      console.warn("Please fill in all fields including location.");
-      return;
-    }
+    if (!isbn || !title || !price || !quantity || !location) return;
+    
     setIsSaving(true);
     setSaveMessage("");
     try {
@@ -202,7 +194,7 @@ export default function App() {
       });
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       await response.json();
-      setIsSaved(true); // This will trigger the useEffect to go back
+      setIsSaved(true);
       setSaveMessage("✅ Saved successfully");
     } catch (error) {
       console.error("Error saving data:", error);
@@ -212,7 +204,6 @@ export default function App() {
     }
   };
 
-  // This function resets the app for the next manual scan.
   const resetForNextScan = () => {
     setIsbn("");
     setManualIsbn("");
@@ -226,10 +217,9 @@ export default function App() {
     setSaveMessage("");
     setIsSaving(false);
     setIsLoading(false);
-    setView("manualIsbn"); // Go directly to manual entry
+    setView("manualIsbn");
   };
 
-  // Automatically fetches title when ISBN length is 13.
   const handleManualIsbnChange = (e) => {
     const newIsbn = e.target.value;
     setManualIsbn(newIsbn);
@@ -238,7 +228,6 @@ export default function App() {
     }
   };
 
-  // The main menu component, accessible via a button.
   const MainMenu = () => (
     <>
       <h1 style={styles.header}>📚 ISBN Scanner</h1>
@@ -331,7 +320,7 @@ export default function App() {
                 </select>
 
                 <button
-                  style={{...styles.saveButton, opacity: isSaving ? 0.6 : 1, cursor: isSaving ? "not-allowed" : "pointer"}}
+                  style={{...styles.saveButton, opacity: isSaving || isSaved ? 0.6 : 1, cursor: isSaving || isSaved ? "not-allowed" : "pointer"}}
                   onClick={sendToBackend} disabled={isSaving || isSaved}>
                   {isSaving ? "💾 Saving..." : (isSaved ? "✅ Saved" : "💾 Save Book")}
                 </button>
@@ -379,4 +368,3 @@ const styles = {
   messageContainer: { margin: "16px 0", padding: "12px", borderRadius: "8px", background: "#f8f9fa", },
   message: { fontWeight: 600, fontSize: "15px", },
 };
-
