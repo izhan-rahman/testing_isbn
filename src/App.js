@@ -390,6 +390,7 @@ export default function App() {
                   placeholder="1" style={styles.input} min={1} required />
 
                 <p style={styles.inputLabel}>📍 Select Location:</p>
+                {/* ✅✅✅ THIS IS THE FIX ✅✅✅ */}
                 <select value={location} onChange={(e) => setLocation(e.target.value)}
                   style={styles.input} required >
                   <option value="">-- SELECT LOCATION --</option>
