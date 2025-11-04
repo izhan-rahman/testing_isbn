@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from "react"; // ✅ 1. Import useCallback
+import React, { useState, useEffect, useRef, useCallback } from "react";
+// ✅ 1. Import the library directly
+import { Html5Qrcode } from "html5-qrcode";
 
 // --- COMPONENTS (Included in one file) ---
 
@@ -10,14 +12,7 @@ function BarcodeScanner({ onDetected }) {
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    // Check if the html5-qrcode script has loaded and added Html5Qrcode to the window.
-    if (!window.Html5Qrcode) {
-      console.error("Html5Qrcode library is not loaded.");
-      setErrorMessage("Scanner library failed to load. Please refresh.");
-      setLoading(false);
-      return;
-    }
-
+    // ✅ 2. No need to check window.Html5Qrcode, it's imported
     const readerElement = document.getElementById("reader");
     if (!readerElement) {
       console.error("The element with id 'reader' was not found.");
@@ -27,10 +22,12 @@ function BarcodeScanner({ onDetected }) {
     }
 
     let isMounted = true;
-    const scanner = new window.Html5Qrcode("reader");
+    // ✅ 3. Use the imported Html5Qrcode directly
+    const scanner = new Html5Qrcode("reader");
     scannerRef.current = scanner;
 
-    window.Html5Qrcode.getCameras()
+    // ✅ 4. Use the imported Html5Qrcode directly
+    Html5Qrcode.getCameras()
       .then((devices) => {
         if (!isMounted) return;
         const backCamera =
@@ -145,7 +142,6 @@ export default function App() {
     }
   }, [view]);
 
-  // ✅ 2. Wrap resetForNextScan in useCallback
   const resetForNextScan = useCallback(() => {
     setIsbn(""); 
     setManualIsbn(""); 
@@ -166,19 +162,18 @@ export default function App() {
     setIsLoading(false);
     
     if (entryMethod === 'manual') {
-      setView("manualIsbn"); // Go back to manual loop
+      setView("manualIsbn");
     } else {
-      setView("scan"); // Go back to main menu
+      setView("scan");
     }
-  }, [entryMethod]); // It only depends on 'entryMethod'
+  }, [entryMethod]);
 
-  // ✅ 3. Add 'resetForNextScan' to the dependency array
   useEffect(() => {
     if (isSaved) {
       const timer = setTimeout(() => resetForNextScan(), 1500);
       return () => clearTimeout(timer);
     }
-  }, [isSaved, resetForNextScan]); // <-- ESLINT FIX IS HERE
+  }, [isSaved, resetForNextScan]);
 
   const fetchTitle = async (isbnToUse, method) => {
     if (!isbnToUse || isbnToUse.trim().length !== 13) return;
@@ -363,7 +358,6 @@ export default function App() {
                     <p style={styles.bookDetail}><span style={styles.label}>📚 Title:</span> {titleFromBackend}</p>
                   )}
                   {author && (
-                    /* ✅✅✅ THIS IS THE FIX (was 'style_=', now 'style=') ✅✅✅ */
                     <p style={styles.bookDetail}><span style={styles.label}>👤 Author:</span> {author}</p>
                   )}
                 </div>
