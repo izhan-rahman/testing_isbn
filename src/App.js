@@ -390,7 +390,7 @@ export default function App() {
                   placeholder="1" style={styles.input} min={1} required />
 
                 <p style={styles.inputLabel}>📍 Select Location:</p>
-                <select value={location} onChange={(e) => setLocation(e.targe.value)}
+                <select value={location} onChange={(e) => setLocation(e.target.value)}
                   style={styles.input} required >
                   <option value="">-- SELECT LOCATION --</option>
                   <option value="GRANDMALL">🏬 GRAND MALL</option>
