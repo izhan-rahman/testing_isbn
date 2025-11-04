@@ -363,7 +363,8 @@ export default function App() {
                     <p style={styles.bookDetail}><span style={styles.label}>📚 Title:</span> {titleFromBackend}</p>
                   )}
                   {author && (
-                    <p style={styles.bookDetail}><span style_={{ ...styles.label, ...styles.icon }}>👤 Author:</span> {author}</p>
+                    /* ✅✅✅ THIS IS THE FIX (was 'style_=', now 'style=') ✅✅✅ */
+                    <p style={styles.bookDetail}><span style={styles.label}>👤 Author:</span> {author}</p>
                   )}
                 </div>
 
@@ -392,7 +393,6 @@ export default function App() {
                   placeholder="1" style={styles.input} min={1} required />
 
                 <p style={styles.inputLabel}>📍 Select Location:</p>
-                {/* ✅✅✅ TYPO FIX IS HERE ✅✅✅ */}
                 <select value={location} onChange={(e) => setLocation(e.target.value)}
                   style={styles.input} required >
                   <option value="">-- SELECT LOCATION --</option>
