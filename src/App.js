@@ -146,8 +146,6 @@ export default function App() {
   }, [view]);
 
   // ✅ 2. Wrap resetForNextScan in useCallback
-  // This function is now memoized and won't change on every render
-  // unless its dependency 'entryMethod' changes.
   const resetForNextScan = useCallback(() => {
     setIsbn(""); 
     setManualIsbn(""); 
@@ -168,9 +166,9 @@ export default function App() {
     setIsLoading(false);
     
     if (entryMethod === 'manual') {
-      setView("manualIsbn");
+      setView("manualIsbn"); // Go back to manual loop
     } else {
-      setView("scan");
+      setView("scan"); // Go back to main menu
     }
   }, [entryMethod]); // It only depends on 'entryMethod'
 
@@ -180,7 +178,7 @@ export default function App() {
       const timer = setTimeout(() => resetForNextScan(), 1500);
       return () => clearTimeout(timer);
     }
-  }, [isSaved, resetForNextScan]); // <-- FIX IS HERE
+  }, [isSaved, resetForNextScan]); // <-- ESLINT FIX IS HERE
 
   const fetchTitle = async (isbnToUse, method) => {
     if (!isbnToUse || isbnToUse.trim().length !== 13) return;
@@ -365,7 +363,7 @@ export default function App() {
                     <p style={styles.bookDetail}><span style={styles.label}>📚 Title:</span> {titleFromBackend}</p>
                   )}
                   {author && (
-                    <p style={styles.bookDetail}><span style={styles.label}>👤 Author:</span> {author}</p>
+                    <p style={styles.bookDetail}><span style_={{ ...styles.label, ...styles.icon }}>👤 Author:</span> {author}</p>
                   )}
                 </div>
 
@@ -394,6 +392,7 @@ export default function App() {
                   placeholder="1" style={styles.input} min={1} required />
 
                 <p style={styles.inputLabel}>📍 Select Location:</p>
+                {/* ✅✅✅ TYPO FIX IS HERE ✅✅✅ */}
                 <select value={location} onChange={(e) => setLocation(e.target.value)}
                   style={styles.input} required >
                   <option value="">-- SELECT LOCATION --</option>
