@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 
-// The BarcodeScanner component is included directly in this file.
-// It accesses the Html5Qrcode library from the global window object.
+// --- COMPONENTS (Included in one file) ---
+
+// The BarcodeScanner component
 function BarcodeScanner({ onDetected }) {
   const scannerRef = useRef(null);
   const isScanning = useRef(false);
@@ -9,7 +10,6 @@ function BarcodeScanner({ onDetected }) {
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    // Check if the html5-qrcode script has loaded and added Html5Qrcode to the window.
     if (!window.Html5Qrcode) {
       console.error("Html5Qrcode library is not loaded.");
       setErrorMessage("Scanner library failed to load. Please refresh.");
@@ -34,11 +34,9 @@ function BarcodeScanner({ onDetected }) {
         if (!isMounted) return;
         const backCamera =
           devices.find((d) => d.label.toLowerCase().includes("back")) || devices[0];
-
         if (!backCamera) {
           throw new Error("No camera found. Please grant camera permissions.");
         }
-
         scanner
           .start(
             backCamera.id,
@@ -52,13 +50,10 @@ function BarcodeScanner({ onDetected }) {
                 }
               }
             },
-            (err) => { /* Ignore scan errors silently */ }
+            (err) => { /* Ignore scan errors */ }
           )
           .then(() => {
-            if (isMounted) {
-              isScanning.current = true;
-              setLoading(false);
-            }
+            if (isMounted) { isScanning.current = true; setLoading(false); }
           })
           .catch((err) => {
              if (isMounted) {
@@ -76,7 +71,6 @@ function BarcodeScanner({ onDetected }) {
         }
       });
 
-    // Cleanup function to stop the scanner when the component unmounts
     return () => {
       isMounted = false;
       if (scannerRef.current && scannerRef.current.isScanning) {
@@ -91,34 +85,46 @@ function BarcodeScanner({ onDetected }) {
     <div>
       {loading && <p style={{ color: "#007bff", paddingTop: "20px" }}>📸 Initializing camera...</p>}
       {errorMessage && <p style={{ color: "#dc3545", paddingTop: "20px" }}>⚠️ {errorMessage}</p>}
-      <div id="reader" style={{ width: "100%", borderRadius: "10px" }} />
+      <div id="reader" style={{ width: "100%", borderRadius: "10px", overflow: "hidden" }} />
     </div>
   );
 }
 
-
-// A self-contained CSS loading animation component.
+// Loading Animation Component
 function RunningCharacterLoader() {
   return (
     <div style={loadingStyles.container}>
       <div style={loadingStyles.spinner}></div>
       <p style={loadingStyles.text}>📖 Searching for book...</p>
-      <div style={loadingStyles.dots}>
-        <span style={{ ...loadingStyles.dot, animationDelay: "0s" }}></span>
-        <span style={{ ...loadingStyles.dot, animationDelay: "0.2s" }}></span>
-        <span style={{ ...loadingStyles.dot, animationDelay: "0.4s" }}></span>
-      </div>
     </div>
   );
 }
 
+// --- CATEGORY DATA ---
+
+const CATEGORIES = [
+  "PRELOVED_NON_FICTION", "ACTIVITY", "TEEN_FICTION", "NON_FICTION",
+  "FICTION", "PRELOVED_FICTION", "COFFEE_TABLE", "PRELOVED_TEEN_FICTION", "ACADEMIC"
+];
+
+const SUB_CATEGORIES = [
+  "SELF-HELP_EDUCATIONAL", "CHILDRENS_LEARNING_ACTIVITY", "FANTASY_YOUNG_ADULT",
+  "REFERENCE_INFORMATIONAL", "GENERAL_STORY_ADVENTURE", "GENERAL",
+  "CLASSIC_CHILDRENS_ADVENTURE", "VISUAL_LIFESTYLE", "FANTASY_ADVENTURE",
+  "EDUCATIONAL_STUDY_MATERIAL"
+];
+
+// --- MAIN APP COMPONENT ---
+
 export default function App() {
-  // Default view is "manualIsbn" to start in the high-speed loop.
-  const [view, setView] = useState("manualIsbn");
+  const [view, setView] = useState("scan");
   const [isbn, setIsbn] = useState("");
   const [manualIsbn, setManualIsbn] = useState("");
   const [titleFromBackend, setTitleFromBackend] = useState("");
   const [manualTitle, setManualTitle] = useState("");
+  const [author, setAuthor] = useState("");
+  const [category, setCategory] = useState("");
+  const [subCategory, setSubCategory] = useState("");
   const [price, setPrice] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [showManualTitle, setShowManualTitle] = useState(false);
@@ -137,21 +143,18 @@ export default function App() {
 
   useEffect(() => {
     if (isSaved) {
-      const timer = setTimeout(() => {
-        resetForNextScan();
-      }, 1500); // Waits 1.5 seconds to show success message
+      const timer = setTimeout(() => resetForNextScan(), 1500);
       return () => clearTimeout(timer);
     }
   }, [isSaved]);
 
   const fetchTitle = async (isbnToUse) => {
     if (!isbnToUse || isbnToUse.trim().length !== 13) return;
-
     setView("priceEntry");
     setIsLoading(true);
     const startTime = Date.now();
     try {
-      const response = await fetch("https://testocr.pythonanywhere.com/receive_isbn", {
+      const response = await fetch("https://testocrtest.pythonanywhere.com/receive_isbn", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isbn: isbnToUse.trim() }),
@@ -166,10 +169,10 @@ export default function App() {
         setTitleFromBackend("");
         setShowManualTitle(true);
       }
+      if (data.author) { setAuthor(data.author); } else { setAuthor(""); }
     } catch (error) {
       console.error("Error fetching title:", error);
-      setTitleFromBackend("");
-      setShowManualTitle(true);
+      setTitleFromBackend(""); setAuthor(""); setShowManualTitle(true);
     } finally {
       const elapsed = Date.now() - startTime;
       const delay = Math.max(0, 300 - elapsed);
@@ -179,44 +182,39 @@ export default function App() {
 
   const sendToBackend = async () => {
     const title = titleFromBackend || manualTitle;
-    if (!isbn || !title || !price || !quantity || !location) return;
-    
+    if (!isbn || !title || !price || !quantity || !location || !category || !subCategory) {
+      setSaveMessage("❌ PLEASE FILL IN ALL FIELDS.");
+      setTimeout(() => setSaveMessage(""), 3000);
+      return;
+    }
     setIsSaving(true);
     setSaveMessage("");
     try {
-      const response = await fetch("https://testocr.pythonanywhere.com/save_title", {
+      const response = await fetch("https://testocrtest.pythonanywhere.com/save_title", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          isbn, b_title: title, price: parseFloat(price),
-          quantity: parseInt(quantity), location
+          isbn, b_title: title, b_author: author, price: parseFloat(price),
+          quantity: parseInt(quantity), location, category: category, sub_category: subCategory
         }),
       });
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       await response.json();
       setIsSaved(true);
-      setSaveMessage("✅ Saved successfully");
+      setSaveMessage("✅ SAVED SUCCESSFULLY");
     } catch (error) {
       console.error("Error saving data:", error);
-      setSaveMessage("❌ Error while saving");
+      setSaveMessage("❌ ERROR WHILE SAVING");
     } finally {
       setIsSaving(false);
     }
   };
 
   const resetForNextScan = () => {
-    setIsbn("");
-    setManualIsbn("");
-    setTitleFromBackend("");
-    setManualTitle("");
-    setPrice("");
-    setQuantity("1");
-    setLocation("GRANDMALL");
-    setShowManualTitle(false);
-    setIsSaved(false);
-    setSaveMessage("");
-    setIsSaving(false);
-    setIsLoading(false);
+    setIsbn(""); setManualIsbn(""); setTitleFromBackend(""); setAuthor("");
+    setCategory(""); setSubCategory(""); setManualTitle(""); setPrice("");
+    setQuantity("1"); setLocation("GRANDMALL"); setShowManualTitle(false);
+    setIsSaved(false); setSaveMessage(""); setIsSaving(false); setIsLoading(false);
     setView("manualIsbn");
   };
 
@@ -228,15 +226,32 @@ export default function App() {
     }
   };
 
+  // --- HOVER EFFECT HANDLERS ---
+  const handleButtonHover = (e, enter) => {
+    e.currentTarget.style.transform = enter ? "scale(1.05)" : "scale(1)";
+  };
+
+  // --- RENDER ---
+
   const MainMenu = () => (
     <>
       <h1 style={styles.header}>📚 ISBN Scanner</h1>
       <p style={styles.subText}>Scan to Store Book</p>
-      <button style={styles.primaryButton} onClick={() => setView("liveScanner")}>
+      <button
+        style={{ ...styles.button, ...styles.primaryButton }}
+        onClick={() => setView("liveScanner")}
+        onMouseEnter={(e) => handleButtonHover(e, true)}
+        onMouseLeave={(e) => handleButtonHover(e, false)}
+      >
         📷 Scan ISBN
       </button>
       <p style={{ ...styles.subText, margin: "20px 0 8px 0" }}>OR</p>
-      <button style={styles.manualButton} onClick={() => setView("manualIsbn")}>
+      <button
+        style={{ ...styles.button, ...styles.manualButton }}
+        onClick={() => setView("manualIsbn")}
+        onMouseEnter={(e) => handleButtonHover(e, true)}
+        onMouseLeave={(e) => handleButtonHover(e, false)}
+      >
         ✏️ Enter Manually
       </button>
     </>
@@ -261,7 +276,12 @@ export default function App() {
             <p style={styles.instructionText}>
               System will automatically search when 13 digits are entered.
             </p>
-            <button style={styles.secondaryButton} onClick={() => setView("scan")}>
+            <button
+              style={{ ...styles.button, ...styles.secondaryButton }}
+              onClick={() => setView("scan")}
+              onMouseEnter={(e) => handleButtonHover(e, true)}
+              onMouseLeave={(e) => handleButtonHover(e, false)}
+            >
               ← Main Menu
             </button>
           </>
@@ -272,10 +292,14 @@ export default function App() {
             <h3 style={styles.subHeader}>Focus on Barcode</h3>
             <div style={styles.scannerArea}>
               <BarcodeScanner onDetected={fetchTitle} />
-              <div style={styles.scannerLine} />
             </div>
             <p style={styles.instructionText}>Position the barcode within the frame</p>
-            <button style={styles.secondaryButton} onClick={() => setView("scan")}>
+            <button
+              style={{ ...styles.button, ...styles.secondaryButton }}
+              onClick={() => setView("scan")}
+              onMouseEnter={(e) => handleButtonHover(e, true)}
+              onMouseLeave={(e) => handleButtonHover(e, false)}
+            >
               ← Main Menu
             </button>
           </>
@@ -289,6 +313,9 @@ export default function App() {
                   <p style={styles.bookDetail}><span style={styles.label}>📖 ISBN:</span> {isbn}</p>
                   {titleFromBackend && (
                     <p style={styles.bookDetail}><span style={styles.label}>📚 Title:</span> {titleFromBackend}</p>
+                  )}
+                  {author && (
+                    <p style={styles.bookDetail}><span style={styles.label}>👤 Author:</span> {author}</p>
                   )}
                 </div>
 
@@ -310,7 +337,7 @@ export default function App() {
 
                 <p style={styles.inputLabel}>📍 Select Location:</p>
                 <select value={location} onChange={(e) => setLocation(e.target.value)}
-                  style={{ ...styles.input, paddingRight: 10, cursor: "pointer" }} required >
+                  style={styles.input} required >
                   <option value="GRANDMALL">🏬 GRAND MALL</option>
                   <option value="DLF">🏢 DLF</option>
                   <option value="MARINAMALL">🛍️ MARINA MALL</option>
@@ -319,15 +346,38 @@ export default function App() {
                   <option value="GARUDA-BNGLR">✈️ Garuda-Bnglr</option>
                 </select>
 
+                <p style={styles.inputLabel}>📊 Select Category:</p>
+                <select value={category} onChange={(e) => setCategory(e.target.value)}
+                  style={styles.input} required >
+                  <option value="">-- SELECT CATEGORY --</option>
+                  {CATEGORIES.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+
+                <p style={styles.inputLabel}>📑 Select Sub-Category:</p>
+                <select value={subCategory} onChange={(e) => setSubCategory(e.target.value)}
+                  style={styles.input} required >
+                  <option value="">-- SELECT SUB-CATEGORY --</option>
+                  {SUB_CATEGORIES.map(subCat => (
+                    <option key={subCat} value={subCat}>{subCat}</option>
+                  ))}
+                </select>
+
                 <button
-                  style={{...styles.saveButton, opacity: isSaving || isSaved ? 0.6 : 1, cursor: isSaving || isSaved ? "not-allowed" : "pointer"}}
-                  onClick={sendToBackend} disabled={isSaving || isSaved}>
-                  {isSaving ? "💾 Saving..." : (isSaved ? "✅ Saved" : "💾 Save Book")}
+                  style={{ ...styles.button, ...styles.saveButton, opacity: isSaving || isSaved ? 0.7 : 1 }}
+                  onClick={sendToBackend} disabled={isSaving || isSaved}
+                  onMouseEnter={(e) => handleButtonHover(e, true)}
+                  onMouseLeave={(e) => handleButtonHover(e, false)}
+                >
+                  {isSaving ? "💾 SAVING..." : (isSaved ? "✅ SAVED" : "💾 SAVE BOOK")}
                 </button>
 
                 {saveMessage && (
                   <div style={styles.messageContainer}>
-                    <span style={styles.message}>{saveMessage}</span>
+                    <span style={{...styles.message, color: saveMessage.startsWith("❌") ? "#dc3545" : "#28a745" }}>
+                      {saveMessage}
+                    </span>
                   </div>
                 )}
               </>
@@ -339,32 +389,159 @@ export default function App() {
   );
 }
 
-// Styles
+// --- STYLES ---
+
 const loadingStyles = {
-  container: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 20px", textAlign: "center" },
+  container: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 20px", textAlign: "center", minHeight: "500px" },
   spinner: { width: "60px", height: "60px", border: "5px solid #f3f3f3", borderTop: "5px solid #007bff", borderRadius: "50%", animation: "spin 1s linear infinite", marginBottom: "20px" },
   text: { fontSize: 18, fontWeight: 600, color: "#007bff", margin: "10px 0", fontFamily: "'Inter', 'Segoe UI', sans-serif" },
-  dots: { display: "flex", justifyContent: "center", marginTop: 10 },
-  dot: { width: 8, height: 8, backgroundColor: "#007bff", borderRadius: "50%", margin: "0 3px", animation: "dotPulse 1.4s infinite ease-in-out" },
 };
+
 const styles = {
-  container: { minHeight: "100vh", background: "linear-gradient(135deg, #c3cfe2 0%, #eef2f3 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Inter', 'Segoe UI', sans-serif", padding: "20px" },
-  card: { width: "100%", maxWidth: "420px", background: "#fff", padding: "30px", borderRadius: "24px", boxShadow: "0 10px 40px rgba(0,0,0,0.15)", textAlign: "center", margin: "0 8px", position: "relative", animation: "fadeIn 0.7s" },
-  header: { fontSize: "30px", color: "#007bff", fontWeight: 700, letterSpacing: 1, marginBottom: 8, textShadow: "0 2px 10px #e3f2fd99" },
-  subHeader: { fontSize: "20px", color: "#333", fontWeight: 600, marginBottom: 20, },
-  subText: { color: "#666", marginBottom: "18px", fontWeight: 500, letterSpacing: 0.5, },
-  instructionText: { color: "#666", fontSize: "14px", fontStyle: "italic", marginBottom: 10, marginTop: 10, },
-  bookInfo: { background: "#f8f9fa", padding: "15px", borderRadius: "12px", marginBottom: "20px", border: "1px solid #e9ecef", },
-  bookDetail: { textAlign: "left", fontWeight: 500, color: "#555", marginBottom: 8, fontSize: "14px", },
-  label: { color: "#2196f3", fontWeight: 600, },
-  inputLabel: { fontWeight: 600, color: "#444", textAlign: "left", margin: "12px 0 6px 2px", fontSize: "15px" },
-  input: { padding: "12px", width: "90%", borderRadius: "10px", border: "2px solid #e1e5e9", background: "#f8f9fa", fontSize: "15px", marginBottom: "16px", transition: "all 0.3s ease", outline: "none", },
-  primaryButton: { background: "linear-gradient(90deg,#007bff,#2186eb)", color: "#fff", border: "none", borderRadius: "16px", padding: "16px 30px", fontSize: "17px", fontWeight: 600, cursor: "pointer", marginTop: "14px", marginBottom: 10, boxShadow: "0 4px 15px rgba(0,123,255,0.3)", transition: "all 0.2s ease", minWidth: "140px", },
-  manualButton: { background: "linear-gradient(90deg,#17a2b8,#20c997)", color: "#fff", border: "none", borderRadius: "12px", padding: "14px 28px", fontSize: "16px", fontWeight: 500, cursor: "pointer", marginTop: "6px", marginBottom: 8, transition: "all 0.2s ease", minWidth: "140px", },
-  saveButton: { background: "linear-gradient(90deg,#28a745,#20c997)", color: "#fff", border: "none", borderRadius: "12px", padding: "16px 30px", fontSize: "17px", fontWeight: 600, cursor: "pointer", marginTop: "20px", boxShadow: "0 4px 15px rgba(40,167,69,0.3)", transition: "all 0.2s ease", minWidth: "140px", },
-  secondaryButton: { background: "linear-gradient(90deg,#ffc107,#fd7e14)", color: "#fff", border: "none", borderRadius: "12px", padding: "12px 24px", fontSize: "16px", fontWeight: 500, cursor: "pointer", marginTop: "16px", transition: "all 0.2s ease", minWidth: "100px", },
-  scannerArea: { border: "4px solid #00bcd4", borderRadius: "18px", boxShadow: "0 4px 20px rgba(0,188,212,0.3)", width: "90%", maxWidth: "320px", margin: "0 auto 18px", position: "relative", overflow: "hidden", height: "240px", background: "#f0fdff" },
-  scannerLine: { position: "absolute", left: 0, right: 0, height: "4px", top: 0, background: "linear-gradient(90deg,#00c6ff,#0072ff,#00c6ff)", animation: "scan-line 2s linear infinite" },
-  messageContainer: { margin: "16px 0", padding: "12px", borderRadius: "8px", background: "#f8f9fa", },
-  message: { fontWeight: 600, fontSize: "15px", },
+  container: {
+    minHeight: "100vh",
+    background: "#f0f2f5", // ✅ THIS IS THE LIGHT GREY-WHITE BACKGROUND
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontFamily: "'Inter', 'Segoe UI', sans-serif",
+    padding: "20px"
+  },
+  card: {
+    width: "100%",
+    maxWidth: "420px",
+    background: "rgba(255, 255, 255, 0.25)", // 25% white, very see-through
+    padding: "30px",
+    borderRadius: "24px",
+    boxShadow: "0 10px 40px rgba(0,0,0,0.15)",
+    textAlign: "center",
+    margin: "0 8px",
+    position: "relative",
+    backdropFilter: "blur(20px)", // This creates the frosted glass blur
+    border: "1px solid rgba(255, 255, 255, 0.5)", // Visible border
+    color: "#333"
+  },
+  header: {
+    fontSize: "30px",
+    color: "#007bff",
+    fontWeight: 700,
+    letterSpacing: 1,
+    marginBottom: 8,
+    textShadow: "0 2px 10px rgba(0,123,255,0.1)"
+  },
+  subHeader: {
+    fontSize: "20px",
+    color: "#333",
+    fontWeight: 600,
+    marginBottom: 20,
+  },
+  subText: {
+    color: "#666",
+    marginBottom: "18px",
+    fontWeight: 500,
+    letterSpacing: 0.5,
+  },
+  instructionText: {
+    color: "#666",
+    fontSize: "14px",
+    fontStyle: "italic",
+    marginBottom: 10,
+    marginTop: 10,
+  },
+  bookInfo: {
+    background: "rgba(255, 255, 255, 0.3)", // Transparent white
+    padding: "15px",
+    borderRadius: "12px",
+    marginBottom: "20px",
+    border: "1px solid rgba(255, 255, 255, 0.4)",
+    textAlign: "left",
+  },
+  bookDetail: {
+    fontWeight: 500,
+    color: "#555",
+    marginBottom: 8,
+    fontSize: "14px",
+  },
+  label: {
+    color: "#2196f3", // Blue label
+    fontWeight: 600,
+  },
+  inputLabel: {
+    fontWeight: 600,
+    color: "#444",
+    textAlign: "left",
+    margin: "12px 0 6px 4px",
+    fontSize: "15px"
+  },
+  input: {
+    padding: "14px",
+    width: "calc(100% - 28px)",
+    borderRadius: "10px",
+    border: "1px solid rgba(255, 255, 255, 0.6)",
+    background: "rgba(255, 255, 255, 0.5)", // Transparent input bg
+    fontSize: "15px",
+    marginBottom: "16px",
+    transition: "all 0.3s ease",
+    outline: "none",
+    color: "#333",
+    WebkitAppearance: "none",
+    boxSizing: "border-box",
+    textAlign: "left",
+    paddingRight: "14px",
+  },
+  // Base button style
+  button: {
+    color: "#fff",
+    border: "none",
+    borderRadius: "16px",
+    padding: "16px 30px",
+    fontSize: "17px",
+    fontWeight: 600,
+    cursor: "pointer",
+    marginTop: "14px",
+    marginBottom: 10,
+    boxShadow: "0 4px 15px rgba(0,0,0,0.2)",
+    transition: "transform 0.2s ease",
+    minWidth: "140px",
+    textAlign: "center",
+  },
+  primaryButton: {
+    background: "linear-gradient(90deg,#007bff,#2186eb)",
+    boxShadow: "0 4px 15px rgba(0,123,255,0.3)",
+  },
+  manualButton: {
+    background: "linear-gradient(90deg,#17a2b8,#20c997)",
+    boxShadow: "0 4px 15px rgba(23,162,184,0.3)",
+  },
+  saveButton: {
+    background: "linear-gradient(90deg,#28a745,#20c997)",
+    boxShadow: "0 4px 15px rgba(40,167,69,0.3)",
+  },
+  secondaryButton: {
+    background: "linear-gradient(90deg,#ffc107,#fd7e14)",
+    boxShadow: "0 4px 15px rgba(255,193,7,0.3)",
+  },
+  scannerArea: {
+    border: "1px solid rgba(0, 0, 0, 0.2)",
+    borderRadius: "18px",
+    boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+    width: "90%",
+    maxWidth: "320px",
+    margin: "0 auto 18px",
+    position: "relative",
+    overflow: "hidden",
+    height: "240px",
+    background: "rgba(0, 0, 0, 0.05)"
+  },
+  messageContainer: {
+    margin: "16px 0",
+    padding: "12px",
+    borderRadius: "8px",
+    background: "rgba(0, 0, 0, 0.05)",
+  },
+  message: {
+    fontWeight: 600,
+    fontSize: "15px",
+  },
 };
+
