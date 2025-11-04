@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react"; // ✅ 1. Import useCallback
 
 // --- COMPONENTS (Included in one file) ---
 
@@ -145,12 +145,42 @@ export default function App() {
     }
   }, [view]);
 
+  // ✅ 2. Wrap resetForNextScan in useCallback
+  // This function is now memoized and won't change on every render
+  // unless its dependency 'entryMethod' changes.
+  const resetForNextScan = useCallback(() => {
+    setIsbn(""); 
+    setManualIsbn(""); 
+    setTitleFromBackend(""); 
+    setAuthor("");
+    setManualTitle("");
+    setManualAuthor("");
+    setCategory(""); 
+    setSubCategory(""); 
+    setPrice("");
+    setQuantity("1"); 
+    setLocation("");
+    setShowManualTitle(false);
+    setShowManualAuthor(false);
+    setIsSaved(false); 
+    setSaveMessage(""); 
+    setIsSaving(false); 
+    setIsLoading(false);
+    
+    if (entryMethod === 'manual') {
+      setView("manualIsbn");
+    } else {
+      setView("scan");
+    }
+  }, [entryMethod]); // It only depends on 'entryMethod'
+
+  // ✅ 3. Add 'resetForNextScan' to the dependency array
   useEffect(() => {
     if (isSaved) {
       const timer = setTimeout(() => resetForNextScan(), 1500);
       return () => clearTimeout(timer);
     }
-  }, [isSaved]);
+  }, [isSaved, resetForNextScan]); // <-- FIX IS HERE
 
   const fetchTitle = async (isbnToUse, method) => {
     if (!isbnToUse || isbnToUse.trim().length !== 13) return;
@@ -235,32 +265,6 @@ export default function App() {
       setSaveMessage("❌ ERROR WHILE SAVING");
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const resetForNextScan = () => {
-    setIsbn(""); 
-    setManualIsbn(""); 
-    setTitleFromBackend(""); 
-    setAuthor("");
-    setManualTitle("");
-    setManualAuthor("");
-    setCategory(""); 
-    setSubCategory(""); 
-    setPrice("");
-    setQuantity("1"); 
-    setLocation("");
-    setShowManualTitle(false);
-    setShowManualAuthor(false);
-    setIsSaved(false); 
-    setSaveMessage(""); 
-    setIsSaving(false); 
-    setIsLoading(false);
-    
-    if (entryMethod === 'manual') {
-      setView("manualIsbn");
-    } else {
-      setView("scan");
     }
   };
 
@@ -390,7 +394,6 @@ export default function App() {
                   placeholder="1" style={styles.input} min={1} required />
 
                 <p style={styles.inputLabel}>📍 Select Location:</p>
-                {/* ✅✅✅ THIS IS THE FIX ✅✅✅ */}
                 <select value={location} onChange={(e) => setLocation(e.target.value)}
                   style={styles.input} required >
                   <option value="">-- SELECT LOCATION --</option>
