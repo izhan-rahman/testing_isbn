@@ -10,6 +10,7 @@ function BarcodeScanner({ onDetected }) {
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
+    // Check if the html5-qrcode script has loaded and added Html5Qrcode to the window.
     if (!window.Html5Qrcode) {
       console.error("Html5Qrcode library is not loaded.");
       setErrorMessage("Scanner library failed to load. Please refresh.");
@@ -123,6 +124,9 @@ export default function App() {
   const [titleFromBackend, setTitleFromBackend] = useState("");
   const [manualTitle, setManualTitle] = useState("");
   const [author, setAuthor] = useState("");
+  const [manualAuthor, setManualAuthor] = useState("");
+  const [showManualAuthor, setShowManualAuthor] = useState(false);
+  const [entryMethod, setEntryMethod] = useState("scan");
   const [category, setCategory] = useState("");
   const [subCategory, setSubCategory] = useState("");
   const [price, setPrice] = useState("");
@@ -132,7 +136,7 @@ export default function App() {
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [location, setLocation] = useState("GRANDMALL");
+  const [location, setLocation] = useState("");
   const manualInputRef = useRef(null);
 
   useEffect(() => {
@@ -148,8 +152,10 @@ export default function App() {
     }
   }, [isSaved]);
 
-  const fetchTitle = async (isbnToUse) => {
+  const fetchTitle = async (isbnToUse, method) => {
     if (!isbnToUse || isbnToUse.trim().length !== 13) return;
+    
+    setEntryMethod(method);
     setView("priceEntry");
     setIsLoading(true);
     const startTime = Date.now();
@@ -162,6 +168,7 @@ export default function App() {
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
       setIsbn(isbnToUse.trim());
+
       if (data.title) {
         setTitleFromBackend(data.title);
         setShowManualTitle(false);
@@ -169,10 +176,21 @@ export default function App() {
         setTitleFromBackend("");
         setShowManualTitle(true);
       }
-      if (data.author) { setAuthor(data.author); } else { setAuthor(""); }
+
+      if (data.author) {
+        setAuthor(data.author);
+        setShowManualAuthor(false);
+      } else {
+        setAuthor("");
+        setShowManualAuthor(true);
+      }
+
     } catch (error) {
       console.error("Error fetching title:", error);
-      setTitleFromBackend(""); setAuthor(""); setShowManualTitle(true);
+      setTitleFromBackend("");
+      setAuthor("");
+      setShowManualTitle(true);
+      setShowManualAuthor(true);
     } finally {
       const elapsed = Date.now() - startTime;
       const delay = Math.max(0, 300 - elapsed);
@@ -182,11 +200,14 @@ export default function App() {
 
   const sendToBackend = async () => {
     const title = titleFromBackend || manualTitle;
-    if (!isbn || !title || !price || !quantity || !location || !category || !subCategory) {
+    const authorToSave = author || manualAuthor;
+    
+    if (!isbn || !title || !authorToSave || !price || !quantity || !location || !category || !subCategory) {
       setSaveMessage("❌ PLEASE FILL IN ALL FIELDS.");
       setTimeout(() => setSaveMessage(""), 3000);
       return;
     }
+    
     setIsSaving(true);
     setSaveMessage("");
     try {
@@ -194,15 +215,22 @@ export default function App() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          isbn, b_title: title, b_author: author, price: parseFloat(price),
-          quantity: parseInt(quantity), location, category: category, sub_category: subCategory
+          isbn, 
+          b_title: title, 
+          b_author: authorToSave,
+          price: parseFloat(price),
+          quantity: parseInt(quantity), 
+          location, 
+          category, 
+          sub_category: subCategory
         }),
       });
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       await response.json();
       setIsSaved(true);
       setSaveMessage("✅ SAVED SUCCESSFULLY");
-    } catch (error) {
+    } catch (error)
+    {
       console.error("Error saving data:", error);
       setSaveMessage("❌ ERROR WHILE SAVING");
     } finally {
@@ -211,18 +239,36 @@ export default function App() {
   };
 
   const resetForNextScan = () => {
-    setIsbn(""); setManualIsbn(""); setTitleFromBackend(""); setAuthor("");
-    setCategory(""); setSubCategory(""); setManualTitle(""); setPrice("");
-    setQuantity("1"); setLocation("GRANDMALL"); setShowManualTitle(false);
-    setIsSaved(false); setSaveMessage(""); setIsSaving(false); setIsLoading(false);
-    setView("manualIsbn");
+    setIsbn(""); 
+    setManualIsbn(""); 
+    setTitleFromBackend(""); 
+    setAuthor("");
+    setManualTitle("");
+    setManualAuthor("");
+    setCategory(""); 
+    setSubCategory(""); 
+    setPrice("");
+    setQuantity("1"); 
+    setLocation("");
+    setShowManualTitle(false);
+    setShowManualAuthor(false);
+    setIsSaved(false); 
+    setSaveMessage(""); 
+    setIsSaving(false); 
+    setIsLoading(false);
+    
+    if (entryMethod === 'manual') {
+      setView("manualIsbn");
+    } else {
+      setView("scan");
+    }
   };
 
   const handleManualIsbnChange = (e) => {
     const newIsbn = e.target.value;
     setManualIsbn(newIsbn);
     if (newIsbn.length === 13) {
-      fetchTitle(newIsbn);
+      fetchTitle(newIsbn, 'manual');
     }
   };
 
@@ -291,7 +337,7 @@ export default function App() {
           <>
             <h3 style={styles.subHeader}>Focus on Barcode</h3>
             <div style={styles.scannerArea}>
-              <BarcodeScanner onDetected={fetchTitle} />
+              <BarcodeScanner onDetected={(isbn) => fetchTitle(isbn, 'scan')} />
             </div>
             <p style={styles.instructionText}>Position the barcode within the frame</p>
             <button
@@ -326,6 +372,14 @@ export default function App() {
                       placeholder="Enter book title" style={styles.input} required />
                   </>
                 )}
+                
+                {showManualAuthor && (
+                  <>
+                    <p style={styles.inputLabel}>👤 Enter Author:</p>
+                    <input value={manualAuthor} onChange={(e) => setManualAuthor(e.target.value)}
+                      placeholder="Enter author name" style={styles.input} />
+                  </>
+                )}
 
                 <p style={styles.inputLabel}>💰 Enter Price:</p>
                 <input type="number" value={price} onChange={(e) => setPrice(e.target.value)}
@@ -336,8 +390,9 @@ export default function App() {
                   placeholder="1" style={styles.input} min={1} required />
 
                 <p style={styles.inputLabel}>📍 Select Location:</p>
-                <select value={location} onChange={(e) => setLocation(e.target.value)}
+                <select value={location} onChange={(e) => setLocation(e.targe.value)}
                   style={styles.input} required >
+                  <option value="">-- SELECT LOCATION --</option>
                   <option value="GRANDMALL">🏬 GRAND MALL</option>
                   <option value="DLF">🏢 DLF</option>
                   <option value="MARINAMALL">🛍️ MARINA MALL</option>
@@ -400,7 +455,7 @@ const loadingStyles = {
 const styles = {
   container: {
     minHeight: "100vh",
-    background: "#f0f2f5", // ✅ THIS IS THE LIGHT GREY-WHITE BACKGROUND
+    background: "#f0f2f5", // Light grey-white background
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
