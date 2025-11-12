@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-// ✅ 1. Import the library directly
+// 1. Import the library directly
 import { Html5Qrcode } from "html5-qrcode";
 
 // --- COMPONENTS (Included in one file) ---
@@ -12,7 +12,7 @@ function BarcodeScanner({ onDetected }) {
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    // ✅ 2. No need to check window.Html5Qrcode, it's imported
+    // 2. No need to check window.Html5Qrcode, it's imported
     const readerElement = document.getElementById("reader");
     if (!readerElement) {
       console.error("The element with id 'reader' was not found.");
@@ -22,11 +22,11 @@ function BarcodeScanner({ onDetected }) {
     }
 
     let isMounted = true;
-    // ✅ 3. Use the imported Html5Qrcode directly
+    // 3. Use the imported Html5Qrcode directly
     const scanner = new Html5Qrcode("reader");
     scannerRef.current = scanner;
 
-    // ✅ 4. Use the imported Html5Qrcode directly
+    // 4. Use the imported Html5Qrcode directly
     Html5Qrcode.getCameras()
       .then((devices) => {
         if (!isMounted) return;
@@ -225,8 +225,11 @@ export default function App() {
     const title = titleFromBackend || manualTitle;
     const authorToSave = author || manualAuthor;
     
-    if (!isbn || !title || !authorToSave || !price || !quantity || !location || !category || !subCategory) {
-      setSaveMessage("❌ PLEASE FILL IN ALL FIELDS.");
+    // ✅✅✅ THIS IS THE FIX ✅✅✅
+    // I removed !category and !subCategory from the 'if' check.
+    // I also updated the error message to be more accurate.
+    if (!isbn || !title || !authorToSave || !price || !quantity || !location) {
+      setSaveMessage("❌ PLEASE FILL IN ALL REQUIRED FIELDS.");
       setTimeout(() => setSaveMessage(""), 3000);
       return;
     }
@@ -244,8 +247,8 @@ export default function App() {
           price: parseFloat(price),
           quantity: parseInt(quantity), 
           location, 
-          category, 
-          sub_category: subCategory
+          category: category || null, // Send null if empty
+          sub_category: subCategory || null // Send null if empty
         }),
       });
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -596,4 +599,3 @@ const styles = {
     fontSize: "15px",
   },
 };
-
