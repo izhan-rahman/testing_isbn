@@ -118,17 +118,13 @@ export default function App() {
   const [view, setView] = useState("scan");
   const [isbn, setIsbn] = useState("");
   const [manualIsbn, setManualIsbn] = useState("");
-  const [titleFromBackend, setTitleFromBackend] = useState("");
-  const [manualTitle, setManualTitle] = useState("");
+  const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
-  const [manualAuthor, setManualAuthor] = useState("");
-  const [showManualAuthor, setShowManualAuthor] = useState(false);
   const [entryMethod, setEntryMethod] = useState("scan");
   const [category, setCategory] = useState("");
   const [subCategory, setSubCategory] = useState("");
   const [price, setPrice] = useState("");
   const [quantity, setQuantity] = useState("1");
-  const [showManualTitle, setShowManualTitle] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -145,17 +141,13 @@ export default function App() {
   const resetForNextScan = useCallback(() => {
     setIsbn(""); 
     setManualIsbn(""); 
-    setTitleFromBackend(""); 
+    setTitle("");
     setAuthor("");
-    setManualTitle("");
-    setManualAuthor("");
     setCategory(""); 
     setSubCategory(""); 
     setPrice("");
     setQuantity("1"); 
     setLocation("");
-    setShowManualTitle(false);
-    setShowManualAuthor(false);
     setIsSaved(false); 
     setSaveMessage(""); 
     setIsSaving(false); 
@@ -192,28 +184,13 @@ export default function App() {
       const data = await response.json();
       setIsbn(isbnToUse.trim());
 
-      if (data.title) {
-        setTitleFromBackend(data.title);
-        setShowManualTitle(false);
-      } else {
-        setTitleFromBackend("");
-        setShowManualTitle(true);
-      }
-
-      if (data.author) {
-        setAuthor(data.author);
-        setShowManualAuthor(false);
-      } else {
-        setAuthor("");
-        setShowManualAuthor(true);
-      }
+      setTitle(data.title || "");
+      setAuthor(data.author || "");
 
     } catch (error) {
       console.error("Error fetching title:", error);
-      setTitleFromBackend("");
+      setTitle("");
       setAuthor("");
-      setShowManualTitle(true);
-      setShowManualAuthor(true);
     } finally {
       const elapsed = Date.now() - startTime;
       const delay = Math.max(0, 300 - elapsed);
@@ -222,13 +199,7 @@ export default function App() {
   };
 
   const sendToBackend = async () => {
-    const title = titleFromBackend || manualTitle;
-    const authorToSave = author || manualAuthor;
-    
-    // ✅✅✅ THIS IS THE FIX ✅✅✅
-    // I removed !category and !subCategory from the 'if' check.
-    // I also updated the error message to be more accurate.
-    if (!isbn || !title || !authorToSave || !price || !quantity || !location) {
+    if (!isbn || !title || !author || !price || !quantity || !location) {
       setSaveMessage("❌ PLEASE FILL IN ALL REQUIRED FIELDS.");
       setTimeout(() => setSaveMessage(""), 3000);
       return;
@@ -243,12 +214,12 @@ export default function App() {
         body: JSON.stringify({
           isbn, 
           b_title: title, 
-          b_author: authorToSave,
+          b_author: author,
           price: parseFloat(price),
           quantity: parseInt(quantity), 
           location, 
-          category: category || null, // Send null if empty
-          sub_category: subCategory || null // Send null if empty
+          category: category || null, 
+          sub_category: subCategory || null 
         }),
       });
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -355,31 +326,30 @@ export default function App() {
           <>
             {isLoading ? <RunningCharacterLoader /> : (
               <>
-                <div style={styles.bookInfo}>
-                  <p style={styles.bookDetail}><span style={styles.label}>📖 ISBN:</span> {isbn}</p>
-                  {titleFromBackend && (
-                    <p style={styles.bookDetail}><span style={styles.label}>📚 Title:</span> {titleFromBackend}</p>
-                  )}
-                  {author && (
-                    <p style={styles.bookDetail}><span style={styles.label}>👤 Author:</span> {author}</p>
-                  )}
-                </div>
+                <p style={styles.inputLabel}>📖 ISBN:</p>
+                <input 
+                  value={isbn} 
+                  style={{...styles.input, ...styles.disabledInput}} 
+                  readOnly 
+                />
 
-                {showManualTitle && (
-                  <>
-                    <p style={styles.inputLabel}>📝 Enter Book Title:</p>
-                    <input value={manualTitle} onChange={(e) => setManualTitle(e.target.value)}
-                      placeholder="Enter book title" style={styles.input} required />
-                  </>
-                )}
+                <p style={styles.inputLabel}>📚 Title:</p>
+                <input 
+                  value={title} 
+                  onChange={(e) => setTitle(e.target.value)} 
+                  placeholder="Enter book title" 
+                  style={styles.input} 
+                  required 
+                />
                 
-                {showManualAuthor && (
-                  <>
-                    <p style={styles.inputLabel}>👤 Enter Author:</p>
-                    <input value={manualAuthor} onChange={(e) => setManualAuthor(e.target.value)}
-                      placeholder="Enter author name" style={styles.input} />
-                  </>
-                )}
+                <p style={styles.inputLabel}>👤 Author:</p>
+                <input 
+                  value={author} 
+                  onChange={(e) => setAuthor(e.target.value)} 
+                  placeholder="Enter author name" 
+                  style={styles.input} 
+                  required
+                />
 
                 <p style={styles.inputLabel}>💰 Enter Price:</p>
                 <input type="number" value={price} onChange={(e) => setPrice(e.target.value)}
@@ -403,7 +373,7 @@ export default function App() {
 
                 <p style={styles.inputLabel}>📊 Select Category:</p>
                 <select value={category} onChange={(e) => setCategory(e.target.value)}
-                  style={styles.input} required >
+                  style={styles.input} >
                   <option value="">-- SELECT CATEGORY --</option>
                   {CATEGORIES.map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
@@ -412,7 +382,7 @@ export default function App() {
 
                 <p style={styles.inputLabel}>📑 Select Sub-Category:</p>
                 <select value={subCategory} onChange={(e) => setSubCategory(e.target.value)}
-                  style={styles.input} required >
+                  style={styles.input} >
                   <option value="">-- SELECT SUB-CATEGORY --</option>
                   {SUB_CATEGORIES.map(subCat => (
                     <option key={subCat} value={subCat}>{subCat}</option>
@@ -503,8 +473,8 @@ const styles = {
     marginBottom: 10,
     marginTop: 10,
   },
-  bookInfo: {
-    background: "rgba(255, 255, 255, 0.3)", // Transparent white
+  bookInfo: { // This style is no longer used, but kept just in case.
+    background: "rgba(255, 255, 255, 0.3)",
     padding: "15px",
     borderRadius: "12px",
     marginBottom: "20px",
@@ -543,6 +513,11 @@ const styles = {
     boxSizing: "border-box",
     textAlign: "left",
     paddingRight: "14px",
+  },
+  disabledInput: {
+    backgroundColor: "rgba(0, 0, 0, 0.05)",
+    color: "#666",
+    cursor: "not-allowed",
   },
   // Base button style
   button: {
