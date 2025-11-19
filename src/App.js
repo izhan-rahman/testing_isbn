@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-// 1. Import the library directly
-import { Html5Qrcode } from "html5-qrcode";
 
-// --- COMPONENTS (Included in one file) ---
+// --- COMPONENTS ---
 
 // The BarcodeScanner component
 function BarcodeScanner({ onDetected }) {
@@ -12,62 +10,91 @@ function BarcodeScanner({ onDetected }) {
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    // 2. No need to check window.Html5Qrcode, it's imported
-    const readerElement = document.getElementById("reader");
-    if (!readerElement) {
-      console.error("The element with id 'reader' was not found.");
-      setLoading(false);
-      setErrorMessage("Scanner container not found.");
-      return;
-    }
-
     let isMounted = true;
-    // 3. Use the imported Html5Qrcode directly
-    const scanner = new Html5Qrcode("reader");
-    scannerRef.current = scanner;
 
-    // 4. Use the imported Html5Qrcode directly
-    Html5Qrcode.getCameras()
-      .then((devices) => {
-        if (!isMounted) return;
-        const backCamera =
-          devices.find((d) => d.label.toLowerCase().includes("back")) || devices[0];
-        if (!backCamera) {
-          throw new Error("No camera found. Please grant camera permissions.");
+    const initializeScanner = () => {
+        const readerElement = document.getElementById("reader");
+        if (!readerElement) {
+          console.error("The element with id 'reader' was not found.");
+          if (isMounted) {
+            setLoading(false);
+            setErrorMessage("Scanner container not found.");
+          }
+          return;
         }
-        scanner
-          .start(
-            backCamera.id,
-            { fps: 10, qrbox: { width: 250, height: 150 } },
-            (decodedText) => {
-              const isbn = decodedText.replace(/[^0-9X]/gi, "");
-              if ((isbn.length === 10 || isbn.length === 13) && (isbn.startsWith("978") || isbn.startsWith("979"))) {
-                if (isScanning.current) {
-                  isScanning.current = false;
-                  scanner.stop().then(() => onDetected(isbn));
+
+        if (!window.Html5Qrcode) {
+            if (isMounted) {
+                setErrorMessage("Scanner library failed to load.");
+                setLoading(false);
+            }
+            return;
+        }
+
+        const scanner = new window.Html5Qrcode("reader");
+        scannerRef.current = scanner;
+
+        window.Html5Qrcode.getCameras()
+          .then((devices) => {
+            if (!isMounted) return;
+            const backCamera =
+              devices.find((d) => d.label.toLowerCase().includes("back")) || devices[0];
+            if (!backCamera) {
+              throw new Error("No camera found. Please grant camera permissions.");
+            }
+            scanner
+              .start(
+                backCamera.id,
+                { fps: 10, qrbox: { width: 250, height: 150 } },
+                (decodedText) => {
+                  const isbn = decodedText.replace(/[^0-9X]/gi, "");
+                  if ((isbn.length === 10 || isbn.length === 13) && (isbn.startsWith("978") || isbn.startsWith("979"))) {
+                    if (isScanning.current) {
+                      isScanning.current = false;
+                      scanner.stop().then(() => onDetected(isbn));
+                    }
+                  }
+                },
+                (err) => { /* Ignore scan errors */ }
+              )
+              .then(() => {
+                if (isMounted) { isScanning.current = true; setLoading(false); }
+              })
+              .catch((err) => {
+                 if (isMounted) {
+                    console.error("Scanner start error:", err);
+                    setErrorMessage("Failed to start camera. Check permissions.");
+                    setLoading(false);
                 }
-              }
-            },
-            (err) => { /* Ignore scan errors */ }
-          )
-          .then(() => {
-            if (isMounted) { isScanning.current = true; setLoading(false); }
+              });
           })
           .catch((err) => {
-             if (isMounted) {
-                console.error("Scanner start error:", err);
-                setErrorMessage("Failed to start camera. Check permissions.");
+            if (isMounted) {
+                console.error("Camera initialization error:", err);
+                setErrorMessage(err.message || "Could not access camera.");
                 setLoading(false);
             }
           });
-      })
-      .catch((err) => {
-        if (isMounted) {
-            console.error("Camera initialization error:", err);
-            setErrorMessage(err.message || "Could not access camera.");
-            setLoading(false);
-        }
-      });
+    };
+
+    // Load the script dynamically since we can't use import
+    if (!window.Html5Qrcode) {
+        const script = document.createElement('script');
+        script.src = "https://unpkg.com/html5-qrcode";
+        script.async = true;
+        script.onload = () => {
+            if (isMounted) initializeScanner();
+        };
+        script.onerror = () => {
+             if (isMounted) {
+                 setErrorMessage("Failed to load scanner script.");
+                 setLoading(false);
+             }
+        };
+        document.body.appendChild(script);
+    } else {
+        initializeScanner();
+    }
 
     return () => {
       isMounted = false;
@@ -102,7 +129,8 @@ function RunningCharacterLoader() {
 
 const CATEGORIES = [
   "PRELOVED_NON_FICTION", "ACTIVITY", "TEEN_FICTION", "NON_FICTION",
-  "FICTION", "PRELOVED_FICTION", "COFFEE_TABLE", "PRELOVED_TEEN_FICTION", "ACADEMIC"
+  "FICTION", "PRELOVED_FICTION", "COFFEE_TABLE", "PRELOVED_TEEN_FICTION", "ACADEMIC",
+  "KIDS", "DICTIONARIES" // Added newly requested categories
 ];
 
 const SUB_CATEGORIES = [
@@ -160,12 +188,9 @@ export default function App() {
     }
   }, [entryMethod]);
 
-  useEffect(() => {
-    if (isSaved) {
-      const timer = setTimeout(() => resetForNextScan(), 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [isSaved, resetForNextScan]);
+  // --- REMOVED AUTO-BACK TIMER ---
+  // The useEffect that was here previously caused the app to go back automatically.
+  // It has been removed to allow manual control via the Back button.
 
   const fetchTitle = async (isbnToUse, method) => {
     if (!isbnToUse || isbnToUse.trim().length !== 13) return;
@@ -405,6 +430,17 @@ export default function App() {
                     </span>
                   </div>
                 )}
+
+                {/* NEW BACK BUTTON - Shows "Finish / Scan Next" if Saved, or generic "Cancel" if not */}
+                <button
+                  style={{ ...styles.button, ...styles.secondaryButton, marginTop: "10px" }}
+                  onClick={resetForNextScan}
+                  onMouseEnter={(e) => handleButtonHover(e, true)}
+                  onMouseLeave={(e) => handleButtonHover(e, false)}
+                >
+                  {isSaved ? "➡️ Finish / Scan Next" : "⬅️ Cancel / Back"}
+                </button>
+
               </>
             )}
           </>
