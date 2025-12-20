@@ -394,6 +394,9 @@ export default function App() {
                   <option value="SKYWALK">🌉 SKYWALK</option>
                   <option value="WAREHOUSE">📦 WAREHOUSE</option>
                   <option value="GARUDA-BNGLR">✈️ Garuda-Bnglr</option>
+                  <option value="KNK"> KNK</option>
+                  <option value="BLRExpo"> BLRExpo</option>
+                  <option value="ECOMMERCE"> ECOMMERCE</option>
                 </select>
 
                 <p style={styles.inputLabel}>📊 Select Category:</p>
