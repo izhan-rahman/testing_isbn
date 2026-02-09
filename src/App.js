@@ -130,7 +130,7 @@ function RunningCharacterLoader() {
 const CATEGORIES = [
   "PRELOVED_NON_FICTION", "ACTIVITY", "TEEN_FICTION", "NON_FICTION",
   "FICTION", "PRELOVED_FICTION", "COFFEE_TABLE", "PRELOVED_TEEN_FICTION", "ACADEMIC",
-  "KIDS", "DICTIONARIES" // Added newly requested categories
+  "KIDS", "DICTIONARIES"
 ];
 
 const SUB_CATEGORIES = [
@@ -149,15 +149,23 @@ export default function App() {
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
   const [entryMethod, setEntryMethod] = useState("scan");
+  
+  // Existing Fields
   const [category, setCategory] = useState("");
   const [subCategory, setSubCategory] = useState("");
   const [price, setPrice] = useState("");
   const [quantity, setQuantity] = useState("1");
+  const [location, setLocation] = useState("");
+
+  // --- NEW FIELDS ---
+  const [condition, setCondition] = useState(""); // New, Pre-Owned
+  const [bookType, setBookType] = useState("");   // Good, Almost New
+
   const [saveMessage, setSaveMessage] = useState("");
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [location, setLocation] = useState("");
+  
   const manualInputRef = useRef(null);
 
   useEffect(() => {
@@ -176,6 +184,10 @@ export default function App() {
     setPrice("");
     setQuantity("1"); 
     setLocation("");
+    // Reset new fields
+    setCondition("");
+    setBookType("");
+
     setIsSaved(false); 
     setSaveMessage(""); 
     setIsSaving(false); 
@@ -187,10 +199,6 @@ export default function App() {
       setView("scan");
     }
   }, [entryMethod]);
-
-  // --- REMOVED AUTO-BACK TIMER ---
-  // The useEffect that was here previously caused the app to go back automatically.
-  // It has been removed to allow manual control via the Back button.
 
   const fetchTitle = async (isbnToUse, method) => {
     if (!isbnToUse || isbnToUse.trim().length !== 13) return;
@@ -224,10 +232,18 @@ export default function App() {
   };
 
   const sendToBackend = async () => {
-    if (!isbn || !title || !author || !price || !quantity || !location) {
+    // Validation: ensure condition is selected. 
+    // If condition is Pre-Owned, ensure bookType is selected.
+    if (!isbn || !title || !author || !price || !quantity || !location || !condition) {
       setSaveMessage("❌ PLEASE FILL IN ALL REQUIRED FIELDS.");
       setTimeout(() => setSaveMessage(""), 3000);
       return;
+    }
+
+    if (condition === "Pre-Owned" && !bookType) {
+        setSaveMessage("❌ PLEASE SELECT BOOK TYPE.");
+        setTimeout(() => setSaveMessage(""), 3000);
+        return;
     }
     
     setIsSaving(true);
@@ -244,7 +260,10 @@ export default function App() {
           quantity: parseInt(quantity), 
           location, 
           category: category || null, 
-          sub_category: subCategory || null 
+          sub_category: subCategory || null,
+          // Sending new fields to backend
+          condition: condition,
+          book_type: condition === "Pre-Owned" ? bookType : null
         }),
       });
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -271,6 +290,15 @@ export default function App() {
   // --- HOVER EFFECT HANDLERS ---
   const handleButtonHover = (e, enter) => {
     e.currentTarget.style.transform = enter ? "scale(1.05)" : "scale(1)";
+  };
+
+  const handleConditionChange = (e) => {
+    const val = e.target.value;
+    setCondition(val);
+    // If user switches away from Pre-Owned, clear the Book Type
+    if (val !== "Pre-Owned") {
+        setBookType("");
+    }
   };
 
   // --- RENDER ---
@@ -384,6 +412,28 @@ export default function App() {
                 <input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)}
                   placeholder="1" style={styles.input} min={1} required />
 
+                {/* --- NEW DROP DOWNS START HERE --- */}
+                
+                <p style={styles.inputLabel}>✨ Book Condition:</p>
+                <select value={condition} onChange={handleConditionChange} style={styles.input} required>
+                    <option value="">-- SELECT CONDITION --</option>
+                    <option value="New">New</option>
+                    <option value="Pre-Owned">Pre-Owned</option>
+                </select>
+
+                {condition === "Pre-Owned" && (
+                    <>
+                        <p style={styles.inputLabel}>🧐 Book Type:</p>
+                        <select value={bookType} onChange={(e) => setBookType(e.target.value)} style={styles.input} required>
+                            <option value="">-- SELECT TYPE --</option>
+                            <option value="Good">Good</option>
+                            <option value="Almost New">Almost New</option>
+                        </select>
+                    </>
+                )}
+
+                {/* --- NEW DROP DOWNS END HERE --- */}
+
                 <p style={styles.inputLabel}>📍 Select Location:</p>
                 <select value={location} onChange={(e) => setLocation(e.target.value)}
                   style={styles.input} required >
@@ -434,7 +484,6 @@ export default function App() {
                   </div>
                 )}
 
-                {/* NEW BACK BUTTON - Shows "Finish / Scan Next" if Saved, or generic "Cancel" if not */}
                 <button
                   style={{ ...styles.button, ...styles.secondaryButton, marginTop: "10px" }}
                   onClick={resetForNextScan}
@@ -464,7 +513,7 @@ const loadingStyles = {
 const styles = {
   container: {
     minHeight: "100vh",
-    background: "#f0f2f5", // Light grey-white background
+    background: "#f0f2f5", 
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -474,15 +523,15 @@ const styles = {
   card: {
     width: "100%",
     maxWidth: "420px",
-    background: "rgba(255, 255, 255, 0.25)", // 25% white, very see-through
+    background: "rgba(255, 255, 255, 0.25)", 
     padding: "30px",
     borderRadius: "24px",
     boxShadow: "0 10px 40px rgba(0,0,0,0.15)",
     textAlign: "center",
     margin: "0 8px",
     position: "relative",
-    backdropFilter: "blur(20px)", // This creates the frosted glass blur
-    border: "1px solid rgba(255, 255, 255, 0.5)", // Visible border
+    backdropFilter: "blur(20px)", 
+    border: "1px solid rgba(255, 255, 255, 0.5)", 
     color: "#333"
   },
   header: {
@@ -512,24 +561,6 @@ const styles = {
     marginBottom: 10,
     marginTop: 10,
   },
-  bookInfo: { // This style is no longer used, but kept just in case.
-    background: "rgba(255, 255, 255, 0.3)",
-    padding: "15px",
-    borderRadius: "12px",
-    marginBottom: "20px",
-    border: "1px solid rgba(255, 255, 255, 0.4)",
-    textAlign: "left",
-  },
-  bookDetail: {
-    fontWeight: 500,
-    color: "#555",
-    marginBottom: 8,
-    fontSize: "14px",
-  },
-  label: {
-    color: "#2196f3", // Blue label
-    fontWeight: 600,
-  },
   inputLabel: {
     fontWeight: 600,
     color: "#444",
@@ -542,7 +573,7 @@ const styles = {
     width: "calc(100% - 28px)",
     borderRadius: "10px",
     border: "1px solid rgba(255, 255, 255, 0.6)",
-    background: "rgba(255, 255, 255, 0.5)", // Transparent input bg
+    background: "rgba(255, 255, 255, 0.5)", 
     fontSize: "15px",
     marginBottom: "16px",
     transition: "all 0.3s ease",
@@ -558,7 +589,6 @@ const styles = {
     color: "#666",
     cursor: "not-allowed",
   },
-  // Base button style
   button: {
     color: "#fff",
     border: "none",
