@@ -439,6 +439,7 @@ export default function App() {
                   style={styles.input} required >
                   <option value="">-- SELECT LOCATION --</option>
                   <option value="GRANDMALL">🏬 GRAND MALL</option>
+                  <option value="SKYWALK-EXPO">SKYWALK-Expo</option> 
                   <option value="DLF">🏢 DLF</option>
                   <option value="MARINAMALL">🛍️ MARINA MALL</option>
                   <option value="SKYWALK">🌉 SKYWALK</option>
