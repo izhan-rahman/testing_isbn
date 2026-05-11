@@ -448,7 +448,7 @@ export default function App() {
                   <option value="KNK"> KNK</option>
                   <option value="BLRExpo"> BLRExpo</option>
                   <option value="ECOMMERCE"> ECOMMERCE</option>
-                  <option value="GRANDMALL-EXPO"> Grandmall-Expo</option>
+                  <option value="GRANDMALL EXPO"> Grandmall Expo</option>
                 </select>
 
                 <p style={styles.inputLabel}>📊 Select Category:</p>
